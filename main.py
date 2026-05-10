@@ -2,10 +2,6 @@
 """
 LEVIATHAN HIGHFIVE V5 — Main Production Bot
 Single‑account, single‑session, modular execution engine.
-
-Correcciones aplicadas:
-- Universo testnet: lista de 30 símbolos CCXT completos, sin reconstrucción.
-- Live mode: se conserva el símbolo completo durante el filtrado.
 """
 import time
 import sys
@@ -97,12 +93,25 @@ class LeviathanBot:
     def _fetch_universe(self) -> List[str]:
         """
         Returns the tradable universe as FULL CCXT symbols.
-        - Testnet: pre‑approved list ordered by historical score.
-        - Live: filters by volume and spread, keeping complete symbol.
+        - Testnet: loads all available markets and intersects them with the pre‑approved list.
+        - Live: filters by volume and spread.
         """
         if config.TESTNET:
-            logger.info(f"Testnet mode: using approved universe ({len(config.APPROVED_SYMBOLS)} symbols)")
-            return config.APPROVED_SYMBOLS.copy()
+            try:
+                self.exchange._exchange.load_markets()
+                all_markets = set(self.exchange._exchange.markets.keys())
+                # Filter the approved list to only those that actually exist in testnet
+                available = [sym for sym in config.APPROVED_SYMBOLS if sym in all_markets]
+                logger.info(f"Testnet universe: {len(available)} of {len(config.APPROVED_SYMBOLS)} approved symbols available")
+                if available:
+                    return available
+                # Fallback: take any swap markets available
+                logger.warning("No approved symbols found in testnet markets, taking all available swaps")
+                available = [s for s in all_markets if s.endswith("/USDT:USDT")]
+                return available[:30]
+            except Exception as e:
+                logger.error(f"Failed to load testnet markets: {e}")
+                return []
 
         # ── Live mode ──
         tickers = self.exchange.fetch_tickers()
@@ -113,7 +122,7 @@ class LeviathanBot:
             vol = t.get("quoteVolume", 0)
             if vol is None or vol < config.MIN_VOL24H:
                 continue
-            candidates.append((sym, vol))          # keep full symbol
+            candidates.append((sym, vol))
         candidates.sort(key=lambda x: x[1], reverse=True)
 
         universe = []
@@ -124,7 +133,7 @@ class LeviathanBot:
                 bid = ob["bids"][0][0]
                 spread_bps = (ask - bid) / ask * 10000
                 if spread_bps <= config.MAX_SPREAD_BPS:
-                    universe.append(sym)           # full CCXT symbol
+                    universe.append(sym)
                     if len(universe) >= 40:
                         break
             except Exception:
