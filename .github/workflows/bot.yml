@@ -1,24 +1,29 @@
+# .github/workflows/bot.yml
 name: Leviathan H5 – Verify & Run
 
 on:
   schedule:
-    - cron: '*/10 * * * *'   # cada 10 minutos en testnet
-  workflow_dispatch:
+    # Ejecutar cada 10 minutos para simular continuidad en testnet
+    - cron: '*/10 * * * *'
+  workflow_dispatch:    # permite ejecución manual desde GitHub
 
 jobs:
   verify-and-run:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Validate environment
+      - name: Validate environment & imports
         env:
           OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
           OKX_SECRET_KEY: ${{ secrets.OKX_SECRET_KEY }}
@@ -35,14 +40,28 @@ jobs:
           print('Directories logs/ and data/ exist')
           "
 
-      - name: Bootstrap bot (dry run)
+      - name: Run Leviathan H5 (dry run / testnet)
         env:
           OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
           OKX_SECRET_KEY: ${{ secrets.OKX_SECRET_KEY }}
           OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
           LIVE_MODE: 'false'
+          CAPITAL: '20'
+          LEVERAGE: '5'
+          TOP_N: '5'
+          COOLDOWN: '300'
+          MODE: 'A'
         run: |
-          python launcher.py --mode run            data/trades.csv
+          python launcher.py --mode run
+
+      # Opcional: guardar artefactos (logs, trades, estado) incluso si el paso anterior falla
+      - name: Upload artifacts
+        if: always()   # siempre, para inspeccionar fallos
+        uses: actions/upload-artifact@v4
+        with:
+          name: leviathan-logs-${{ github.run_id }}
+          path: |
+            data/trades.csv
             data/state.json
             logs/bot.log
           retention-days: 7
