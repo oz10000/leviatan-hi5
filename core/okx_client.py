@@ -18,7 +18,7 @@ class OKXClientWrapper:
 
         self._exchange = ccxt.okx({
             "apiKey": config.OKX_API_KEY,
-            "secret": config.OKX_SECRET_KEY,   # ← corregido
+            "secret": config.OKX_SECRET_KEY,
             "password": config.OKX_PASSPHRASE,
             "enableRateLimit": True,
             "options": {
@@ -50,22 +50,19 @@ class OKXClientWrapper:
         return self._retry(self._exchange.fetch_tickers)
 
     def fetch_ohlcv(self, symbol: str, timeframe: str = "5m", limit: int = 100):
-        inst = f"{symbol}/USDT:USDT"
-        return self._retry(self._exchange.fetch_ohlcv, inst, timeframe, limit=limit)
+        # symbol ya es completo: "SOL/USDT:USDT"
+        return self._retry(self._exchange.fetch_ohlcv, symbol, timeframe, limit=limit)
 
     def fetch_ticker(self, symbol: str):
-        inst = f"{symbol}/USDT:USDT"
-        return self._retry(self._exchange.fetch_ticker, inst)
+        return self._retry(self._exchange.fetch_ticker, symbol)
 
     def fetch_order_book(self, symbol: str, limit: int = 5):
-        inst = f"{symbol}/USDT:USDT"
-        return self._retry(self._exchange.fetch_order_book, inst, limit)
+        return self._retry(self._exchange.fetch_order_book, symbol, limit)
 
     def fetch_balance(self):
         return self._retry(self._exchange.fetch_balance)
 
     def create_order(self, symbol, order_type, side, amount):
-        inst = f"{symbol}/USDT:USDT"
         return self._retry(
-            self._exchange.create_order, inst, order_type, side, amount
+            self._exchange.create_order, symbol, order_type, side, amount
         )
