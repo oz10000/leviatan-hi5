@@ -1,6 +1,6 @@
 """
-OKX Client Wrapper — ccxt-based with retry, reconnect, and
-testnet/live auto‑detection. Uses x-simulated-trading header for demo.
+OKX Client Wrapper – ccxt-based with retry, reconnect, and
+testnet/live auto-detection. Uses x-simulated-trading header for demo.
 """
 import time
 import ccxt
@@ -18,7 +18,7 @@ class OKXClientWrapper:
 
         self._exchange = ccxt.okx({
             "apiKey": config.OKX_API_KEY,
-            "secret": config.OKX_API_SECRET,
+            "secret": config.OKX_SECRET_KEY,   # ← corregido
             "password": config.OKX_PASSPHRASE,
             "enableRateLimit": True,
             "options": {
