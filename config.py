@@ -103,14 +103,27 @@ MIN_VOL24H: float = 2_000_000
 MAX_SPREAD_BPS: float = 10          # exclude if spread > 10 bps
 
 # ================================================================
-# 8. PERSISTENCE
+# 8. TESTNET APPROVED UNIVERSE (from simulation)
+# ================================================================
+# Ordered by historical Leviathan score (1m+5m, 30 days)
+APPROVED_SYMBOLS: list = [
+    "SOLUSDT", "SUIUSDT", "LINKUSDT", "BTCUSDT", "ETHUSDT",   # Top 5
+    "OPUSDT", "ARBUSDT", "INJUSDT", "LTCUSDT", "AVAXUSDT",    # Suplentes directos
+    "MATICUSDT", "DOTUSDT", "ATOMUSDT", "UNIUSDT", "FILUSDT",
+    "NEARUSDT", "APTUSDT", "STXUSDT", "SANDUSDT", "MANAUSDT",
+    "EGLDUSDT", "FTMUSDT", "GRTUSDT", "AXSUSDT", "WAVESUSDT",
+    "ZILUSDT", "KNCUSDT", "CVXUSDT", "MKRUSDT", "COMPUSDT",
+]
+
+# ================================================================
+# 9. PERSISTENCE
 # ================================================================
 STATE_FILE: str = "data/state.json"
 TRADES_CSV: str = "data/trades.csv"
 EQUITY_CSV: str = "data/equity.csv"
 
 # ================================================================
-# 9. ENVIRONMENT VALIDATION (warnings only, do not block)
+# 10. ENVIRONMENT VALIDATION (warnings only, do not block)
 # ================================================================
 _issues: list = []
 if not OKX_API_KEY:
