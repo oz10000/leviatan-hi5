@@ -1,11 +1,9 @@
-# .github/workflows/bot.yml
-name: Leviathan H5 – Verify & Run
+name: Leviathan H5 - Verify and Run
 
 on:
   schedule:
-    # Ejecutar cada 10 minutos para simular continuidad en testnet
     - cron: '*/10 * * * *'
-  workflow_dispatch:    # permite ejecución manual desde GitHub
+  workflow_dispatch:
 
 jobs:
   verify-and-run:
@@ -23,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Validate environment & imports
+      - name: Validate environment and imports
         env:
           OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
           OKX_SECRET_KEY: ${{ secrets.OKX_SECRET_KEY }}
@@ -32,11 +30,11 @@ jobs:
         run: |
           python -c "
           import config
-          print('✅ config module loaded')
-          print(f'Testnet mode: {config.TESTNET}')
-          print(f'API Key set: {bool(config.OKX_API_KEY)}')
-          print(f'Secret Key set: {bool(config.OKX_SECRET_KEY)}')
-          print(f'Passphrase set: {bool(config.OKX_PASSPHRASE)}')
+          print('config module loaded')
+          print('Testnet mode:', config.TESTNET)
+          print('API Key set:', bool(config.OKX_API_KEY))
+          print('Secret Key set:', bool(config.OKX_SECRET_KEY))
+          print('Passphrase set:', bool(config.OKX_PASSPHRASE))
           print('Directories logs/ and data/ exist')
           "
 
@@ -54,9 +52,8 @@ jobs:
         run: |
           python launcher.py --mode run
 
-      # Opcional: guardar artefactos (logs, trades, estado) incluso si el paso anterior falla
       - name: Upload artifacts
-        if: always()   # siempre, para inspeccionar fallos
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: leviathan-logs-${{ github.run_id }}
