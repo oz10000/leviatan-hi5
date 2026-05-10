@@ -7,7 +7,7 @@ import time
 import sys
 import traceback
 from datetime import datetime, timezone
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -76,7 +76,7 @@ class LeviathanBot:
         self.position: Optional[Dict] = None
 
         # ── Universe ──
-        self.universe: list = self._fetch_universe()
+        self.universe: List[str] = self._fetch_universe()
 
         # ── Console ──
         self.console = ConsoleTelemetry()
@@ -90,8 +90,17 @@ class LeviathanBot:
         logger.info(f"Leviathan HighFive V5 initialized | MODE={config.MODE} | "
                     f"LIVE={use_live} | Capital=${self.equity:.2f}")
 
-    def _fetch_universe(self) -> list:
-        """Fetch and filter the tradable universe."""
+    def _fetch_universe(self) -> List[str]:
+        """
+        Returns the tradable universe.
+        On testnet uses the pre‑approved list from historical simulation.
+        On live applies volume/spread filters.
+        """
+        if config.TESTNET:
+            logger.info(f"Testnet mode: using approved universe ({len(config.APPROVED_SYMBOLS)} symbols)")
+            return config.APPROVED_SYMBOLS.copy()
+
+        # Live mode: fetch and filter
         tickers = self.exchange.fetch_tickers()
         candidates = []
         for sym, t in tickers.items():
@@ -103,7 +112,6 @@ class LeviathanBot:
             candidates.append((sym.split("/")[0], vol))
         candidates.sort(key=lambda x: x[1], reverse=True)
 
-        # Spread filter
         universe = []
         for sym, _ in candidates[:100]:
             try:
@@ -117,7 +125,7 @@ class LeviathanBot:
                         break
             except Exception:
                 pass
-        logger.info(f"Universe: {len(universe)} tradable assets")
+        logger.info(f"Live universe: {len(universe)} tradable assets")
         return universe
 
     def _manage_position(self, now_ts: float) -> bool:
@@ -201,7 +209,7 @@ class LeviathanBot:
         # Session filter
         allowed, exposure_factor = self.session_filter.check()
         if not allowed:
-            logger.info(f"Session blocked by filter")
+            logger.info("Session blocked by filter")
             return
 
         # Circuit breaker
@@ -209,19 +217,23 @@ class LeviathanBot:
             logger.warning("Circuit breaker active — skipping trade")
             return
 
-        # Score universe
-        ranked = score_universe(self.exchange, self.universe)
-        if not ranked:
+        # ── Build candidate list ──
+        # In testnet the universe is already ordered by historical score,
+        # so we simply take the first N symbols that are out of cooldown.
+        # For live mode we would score them in real time.
+        if config.TESTNET:
+            # Use universe order as priority; filter by cooldown
+            eligible = [sym for sym in self.universe if self.cooldown.can_trade(sym)]
+        else:
+            ranked = score_universe(self.exchange, self.universe)
+            ranked = self.corr_filter.filter(ranked, self.cooldown)
+            eligible = [sym for sym, _ in ranked if self.cooldown.can_trade(sym)]
+
+        if not eligible:
             return
 
-        # Filter correlation with recent trades
-        ranked = self.corr_filter.filter(ranked, self.cooldown)
-
-        # Select best eligible
-        for sym, score in ranked:
-            if not self.cooldown.can_trade(sym):
-                continue
-
+        # Select best eligible (top 5 priority, then suplentes)
+        for sym in eligible:
             # Fetch features
             try:
                 ohlcv_5m = self.exchange.fetch_ohlcv(sym, "5m", limit=100)
