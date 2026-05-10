@@ -2,6 +2,10 @@
 """
 LEVIATHAN HIGHFIVE V5 — Main Production Bot
 Single‑account, single‑session, modular execution engine.
+
+Correcciones aplicadas:
+- Universo testnet: lista de 30 símbolos CCXT completos, sin reconstrucción.
+- Live mode: se conserva el símbolo completo durante el filtrado.
 """
 import time
 import sys
@@ -92,15 +96,15 @@ class LeviathanBot:
 
     def _fetch_universe(self) -> List[str]:
         """
-        Returns the tradable universe.
-        On testnet uses the pre‑approved list from historical simulation.
-        On live applies volume/spread filters.
+        Returns the tradable universe as FULL CCXT symbols.
+        - Testnet: pre‑approved list ordered by historical score.
+        - Live: filters by volume and spread, keeping complete symbol.
         """
         if config.TESTNET:
             logger.info(f"Testnet mode: using approved universe ({len(config.APPROVED_SYMBOLS)} symbols)")
             return config.APPROVED_SYMBOLS.copy()
 
-        # Live mode: fetch and filter
+        # ── Live mode ──
         tickers = self.exchange.fetch_tickers()
         candidates = []
         for sym, t in tickers.items():
@@ -109,7 +113,7 @@ class LeviathanBot:
             vol = t.get("quoteVolume", 0)
             if vol is None or vol < config.MIN_VOL24H:
                 continue
-            candidates.append((sym.split("/")[0], vol))
+            candidates.append((sym, vol))          # keep full symbol
         candidates.sort(key=lambda x: x[1], reverse=True)
 
         universe = []
@@ -120,7 +124,7 @@ class LeviathanBot:
                 bid = ob["bids"][0][0]
                 spread_bps = (ask - bid) / ask * 10000
                 if spread_bps <= config.MAX_SPREAD_BPS:
-                    universe.append(sym)
+                    universe.append(sym)           # full CCXT symbol
                     if len(universe) >= 40:
                         break
             except Exception:
@@ -218,11 +222,8 @@ class LeviathanBot:
             return
 
         # ── Build candidate list ──
-        # In testnet the universe is already ordered by historical score,
-        # so we simply take the first N symbols that are out of cooldown.
-        # For live mode we would score them in real time.
+        # In testnet the universe is already ordered by historical score.
         if config.TESTNET:
-            # Use universe order as priority; filter by cooldown
             eligible = [sym for sym in self.universe if self.cooldown.can_trade(sym)]
         else:
             ranked = score_universe(self.exchange, self.universe)
