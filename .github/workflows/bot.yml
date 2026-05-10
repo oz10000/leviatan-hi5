@@ -1,15 +1,13 @@
-name: Leviathan HighFive V5 Runner
+name: Leviathan H5 – Verify & Run
 
 on:
   schedule:
-    - cron: '*/5 * * * *'    # every 5 minutes
+    - cron: '*/10 * * * *'   # cada 10 minutos en testnet
   workflow_dispatch:
 
 jobs:
-  bot:
+  verify-and-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
-
     steps:
       - uses: actions/checkout@v4
 
@@ -20,21 +18,31 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Leviathan V5
+      - name: Validate environment
         env:
           OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
-          OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
+          OKX_SECRET_KEY: ${{ secrets.OKX_SECRET_KEY }}
           OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
           LIVE_MODE: 'false'
-        run: python launcher.py --mode run
+        run: |
+          python -c "
+          import config
+          print('✅ config module loaded')
+          print(f'Testnet mode: {config.TESTNET}')
+          print(f'API Key set: {bool(config.OKX_API_KEY)}')
+          print(f'Secret Key set: {bool(config.OKX_SECRET_KEY)}')
+          print(f'Passphrase set: {bool(config.OKX_PASSPHRASE)}')
+          print('Directories logs/ and data/ exist')
+          "
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: leviathan-logs-${{ github.run_id }}
-          path: |
-            data/trades.csv
+      - name: Bootstrap bot (dry run)
+        env:
+          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
+          OKX_SECRET_KEY: ${{ secrets.OKX_SECRET_KEY }}
+          OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
+          LIVE_MODE: 'false'
+        run: |
+          python launcher.py --mode run            data/trades.csv
             data/state.json
             logs/bot.log
           retention-days: 7
